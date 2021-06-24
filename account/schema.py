@@ -1,50 +1,82 @@
-import graphene
-from graphene_django import DjangoObjectType
-from graphene_django.converter import convert_django_field
-from graphql_auth.schema import UserQuery, MeQuery
-from graphql_auth import mutations
-from django.contrib.auth.models import User
 from cloudinary.models import CloudinaryField
+
+import graphene
+import graphene_django
+from graphql import GraphQLError
+from graphene import relay, ObjectType, String, Scalar
+from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
+from graphql_auth import mutations
+from graphql_jwt.decorators import *
+from graphene_file_upload.scalars import Upload
+from graphene_django_crud.types import DjangoGrapheneCRUD, resolver_hints
+
+from django.contrib.auth.models import User
 from .models import Profile
+from .utils import is_owner
+from graphql_auth.models import UserStatus
 
-from graphql_auth.mixins import VerifyAccountMixin
 
-@convert_django_field.register(CloudinaryField)
-def convert_profile_pic(field, registry=None):
 
-    return "TEST"
+class StatusType(DjangoGrapheneCRUD):
+    """
+    A type for `UserStatus` from graphql_auth lib.
+    It is defined to enable accessing to verified value for a user.
+    """
 
-class UserType(DjangoObjectType):
+    class Meta:
+        model = UserStatus
+
+class UserType(DjangoGrapheneCRUD):
+    """
+    A type for `auth.User`. It is used to be found in other types.
+    """
+
     class Meta:
         model = User
-        fields = ["username", 'email', 'is_active']
+        exclude_fields = ("password",)
+        input_exclude_fields = ("last_login", "date_joined")
 
-class ProfileType(DjangoObjectType):
-    profile_pic = graphene.String()
+    @classmethod
+    @staff_member_required
+    def get_queryset(cls, parent, info, **kwargs):
+        return super().get_queryset(parent, info, **kwargs)
+
+
+class ProfileType(DjangoGrapheneCRUD):
+    """
+    A type for `account.Profile` model.
+    """
+    
+    file = Upload()
 
     class Meta:
         model = Profile
-        fields = ['profile_pic', 'year', 'major']
+        input_exclude_fields = ('user', )
+        exclude_fields = ('user', )
 
+    @classmethod
+    @is_owner
+    def before_update(cls, parent, info, instance, data):
+        return
 
-# class Query(graphene.ObjectType):
-#     viewer = graphene.Field(UserType)
+class ProfileNode(DjangoObjectType):
+    """
+    A type for `account.Profile` model.
+    This class is for graphql_auth methods.
+    """
+    
+    class Meta:
+        model = Profile
+        exclude = ('user', )
 
-#     def resolve_viewer(self, info, **kwargs):
-#         user = info.context.user
-#         if not user.is_authenticated:
-#             raise Exception('Authentication credentials were not provided')
-#         return user
-
-# class Mutation(graphene.ObjectType):
-#     token_auth = graphql_jwt.ObtainJSONWebToken.Field()
-#     verify_token = graphql_jwt.Verify.Field()
-#     refresh_token = graphql_jwt.Refresh.Field()
-
-class Query(UserQuery, MeQuery, graphene.ObjectType):
-    pass
 
 class AuthMutation(graphene.ObjectType):
+    '''
+    All authintication mutations.
+    It inherits from `django_graphql_auth` and `django_graphql_jwt`.
+    '''
+
     register = mutations.Register.Field()
     verify_account = mutations.VerifyAccount.Field()
     resend_activation_email = mutations.ResendActivationEmail.Field()
@@ -55,10 +87,6 @@ class AuthMutation(graphene.ObjectType):
     update_account = mutations.UpdateAccount.Field()
     delete_account = mutations.DeleteAccount.Field()
     archive_account = mutations.ArchiveAccount.Field()
-    # send_secondary_email_activation =  mutations.SendSecondaryEmailActivation.Field()
-    # verify_secondary_email = mutations.VerifySecondaryEmail.Field()
-    # swap_emails = mutations.SwapEmails.Field()
-    # remove_secondary_email = mutations.RemoveSecondaryEmail.Field()
 
     # django-graphql-jwt inheritances
     token_auth = mutations.ObtainJSONWebToken.Field()
@@ -66,9 +94,28 @@ class AuthMutation(graphene.ObjectType):
     refresh_token = mutations.RefreshToken.Field()
     revoke_token = mutations.RevokeToken.Field()
 
+
+class Query(graphene.ObjectType):
+    '''
+    Main entry for all query type for `account` app.
+    '''
+    # profile = ProfileType.ReadField()
+    # profiles = ProfileType.BatchReadField()
+
+    # user = UserType.ReadField()
+    users = UserType.BatchReadField()
+
+    me = graphene.Field(UserType)
+
+    @login_required
+    def resolve_me(parent, info):
+        return info.context.user
+
+
 class Mutation(AuthMutation, graphene.ObjectType):
-    pass
-
-
-
-#schema = graphene.Schema(query=Query, mutation=Mutation)
+    '''
+    Main entry for all `Mutation` types for `account` app.
+    It inherits from `AuthMutation`.
+    '''
+    
+    profile_update = ProfileType.UpdateField()

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 
@@ -26,11 +27,11 @@ INSTALLED_APPS = [
     'graphql_jwt.refresh_token.apps.RefreshTokenConfig',
     'graphql_auth',
     'mathfilters',
-    'ingredients',
+    'forum',
+    'whatsapp',
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -38,6 +39,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.common.BrokenLinkEmailsMiddleware',
     'maintenance_mode.middleware.MaintenanceModeMiddleware',
 ]
 
@@ -149,7 +151,7 @@ AUTHENTICATION_BACKENDS = [
 
 # GraphQL
 GRAPHENE = {
-    'SCHEMA': 'account.schema.schema',
+    'SCHEMA': 'kfupm.schema.schema',
     'MIDDLEWARE': [
         'graphql_jwt.middleware.JSONWebTokenMiddleware',
     ],
@@ -158,6 +160,9 @@ GRAPHENE = {
 GRAPHQL_JWT = {
     "JWT_VERIFY_EXPIRATION": True,
     "JWT_LONG_RUNNING_REFRESH_TOKEN": True,
+    'JWT_EXPIRATION_DELTA': timedelta(minutes=60*24),
+    'JWT_REFRESH_EXPIRATION_DELTA': timedelta(days=7),
+    # 'JWT_ALLOW_ARGUMENT': True,
     "JWT_ALLOW_ANY_CLASSES": [
         "graphql_auth.mutations.Register",
         "graphql_auth.mutations.VerifyAccount",
@@ -179,7 +184,4 @@ GRAPHQL_AUTH = {
     "EMAIL_TEMPLATE_SECONDARY_EMAIL_ACTIVATION": "email/activation_email.html",
     "EMAIL_TEMPLATE_PASSWORD_SET": "email/password_set_email.html",
     "EMAIL_TEMPLATE_PASSWORD_RESET": "email/password_reset_email.html",
-}
-GRAPHENE = {
-    'SCHEMA': 'kfupm.schema.schema'
 }

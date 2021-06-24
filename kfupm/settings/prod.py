@@ -6,6 +6,7 @@ import django_heroku
 import os
 import cloudinary
 from cloudinary import config
+import re
 
 # Extra app
 
@@ -13,12 +14,22 @@ INSTALLED_APPS += [
     'django.contrib.admindocs',
 ]
 
+MIDDLEWARE += [
+    'account.middleware.DiscordNotificationMiddleware',
+]
+
+# For Discord notification
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", default='')
+
 
 SECRET_KEY = os.environ.get("SECRET_KEY", default='')
 
 DEBUG = (os.environ.get("DEBUG", default=True) == 'True')
 
 ALLOWED_HOSTS = ['.petroly.co', '.petroly-main.herokuapp.com']
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 
 EMAIL_HOST = os.environ.get("EMAIL_HOST")
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
@@ -47,5 +58,18 @@ STATIC_URL = '/static/'
 
 MEDIA_URL = '/media/'
 
+# To get Email when >500 error happens
+SERVER_EMAIL = 'Error@petroly.co'
+ADMINS = [
+    ('Ammar', 'A@ammarf.com')
+]
+# To get 404 errors
+MANAGERS = ADMINS
+# Ignore these pattern errors
+IGNORABLE_404_URLS = [
+    re.compile(r'^/apple-touch-icon.*\.png$'),
+    re.compile(r'^/favicon\.ico$'),
+    re.compile(r'^/robots\.txt$'),
+]
 
 django_heroku.settings(locals())
